@@ -24,10 +24,11 @@ import {
   AgentBuilderContextInjector,
   EvalContextSystemInjector,
   ForceFinishSummaryInjector,
-  GroupAgentBuilderContextInjector,
-  GroupContextInjector,
+  AgentManagementContextInjector,
   GTDPlanInjector,
   GTDTodoInjector,
+  GroupAgentBuilderContextInjector,
+  GroupContextInjector,
   HistorySummaryProvider,
   KnowledgeInjector,
   PageEditorContextInjector,
@@ -131,6 +132,7 @@ export class MessagesEngine {
       fileContext,
       agentBuilderContext,
       evalContext,
+      agentManagementContext,
       groupAgentBuilderContext,
       agentGroup,
       gtd,
@@ -142,6 +144,7 @@ export class MessagesEngine {
     } = this.params;
 
     const isAgentBuilderEnabled = !!agentBuilderContext;
+    const isAgentManagementEnabled = !!agentManagementContext;
     const isGroupAgentBuilderEnabled = !!groupAgentBuilderContext;
     const isAgentGroupEnabled = agentGroup?.agentMap && Object.keys(agentGroup.agentMap).length > 0;
     const isGroupContextEnabled =
@@ -218,7 +221,13 @@ export class MessagesEngine {
         agentContext: agentBuilderContext,
       }),
 
-      // 10. Group Agent Builder context injection (current group config/members for editing)
+      // 7. Agent Management context injection (available models and plugins for agent creation)
+      new AgentManagementContextInjector({
+        enabled: isAgentManagementEnabled,
+        context: agentManagementContext,
+      }),
+
+      // 8. Group Agent Builder context injection (current group config/members for editing)
       new GroupAgentBuilderContextInjector({
         enabled: isGroupAgentBuilderEnabled,
         groupContext: groupAgentBuilderContext,
