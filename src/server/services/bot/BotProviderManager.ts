@@ -9,8 +9,6 @@ import { AgentBridgeService } from './AgentBridgeService';
 
 const log = debug('lobe-server:bot:provider-manager');
 
-type SupportedPlatform = 'discord' | 'slack';
-
 interface ResolvedAgentInfo {
   agentId: string;
   userId: string;
@@ -43,7 +41,7 @@ export class BotProviderManager {
    * Get the webhook handler for a given platform.
    * Returns a function compatible with Next.js Route Handler: `(req: Request) => Promise<Response>`
    */
-  getWebhookHandler(platform: SupportedPlatform): (req: Request) => Promise<Response> {
+  getWebhookHandler(platform: string): (req: Request) => Promise<Response> {
     return async (req: Request) => {
       // Ensure initialisation has happened
       await this.ensureInitialized();
@@ -104,41 +102,44 @@ export class BotProviderManager {
   // ------------------------------------------------------------------
 
   private createFallbackBot(): void {
-    const discordBotToken = process.env.DISCORD_BOT_TOKEN;
-    const discordPublicKey = process.env.DISCORD_PUBLIC_KEY;
-    const discordAppId = process.env.DISCORD_APPLICATION_ID;
+    const DISCORD_BOT_TOKEN = process.env.DISCORD_BOT_TOKEN;
+    const DISCORD_PUBLIC_KEY = process.env.DISCORD_PUBLIC_KEY;
+    const DISCORD_APPLICATION_ID = process.env.DISCORD_APPLICATION_ID;
+    const DISCORD_DEFAULT_AGENT_ID = process.env.DISCORD_DEFAULT_AGENT_ID;
+    const DISCORD_DEFAULT_USER_ID = process.env.DISCORD_DEFAULT_USER_ID;
 
-    if (!discordBotToken || !discordPublicKey) {
+    if (!DISCORD_BOT_TOKEN || !DISCORD_PUBLIC_KEY) {
       log('No Discord env vars configured, skipping fallback bot');
       return;
     }
 
-    const defaultAgentId = process.env.DISCORD_DEFAULT_AGENT_ID;
-    const defaultUserId = process.env.DISCORD_DEFAULT_USER_ID;
-    if (!defaultAgentId || !defaultUserId) {
+    if (!DISCORD_DEFAULT_AGENT_ID || !DISCORD_DEFAULT_USER_ID) {
       log('DISCORD_DEFAULT_AGENT_ID or DISCORD_DEFAULT_USER_ID not set, skipping fallback bot');
       return;
     }
 
     const adapters: Record<string, any> = {
       discord: createDiscordAdapter({
-        botToken: discordBotToken,
-        publicKey: discordPublicKey,
+        botToken: DISCORD_BOT_TOKEN,
+        publicKey: DISCORD_PUBLIC_KEY,
       }),
     };
 
     const bot = this.createBot(adapters, 'fallback');
-    this.registerHandlers(bot, { agentId: defaultAgentId, userId: defaultUserId });
+    this.registerHandlers(bot, {
+      agentId: DISCORD_DEFAULT_AGENT_ID,
+      userId: DISCORD_DEFAULT_USER_ID,
+    });
     this.fallbackBot = bot;
 
-    if (discordAppId) {
-      this.discordAgentMap.set(discordAppId, {
-        agentId: defaultAgentId,
-        userId: defaultUserId,
+    if (DISCORD_APPLICATION_ID) {
+      this.discordAgentMap.set(DISCORD_APPLICATION_ID, {
+        agentId: DISCORD_DEFAULT_AGENT_ID,
+        userId: DISCORD_DEFAULT_USER_ID,
       });
     }
 
-    log('Created fallback Discord bot (agent=%s)', defaultAgentId);
+    log('Created fallback Discord bot (agent=%s)', DISCORD_DEFAULT_AGENT_ID);
   }
 
   // ------------------------------------------------------------------
@@ -165,15 +166,13 @@ export class BotProviderManager {
   // ------------------------------------------------------------------
 
   private createBot(adapters: Record<string, any>, label: string): Chat<any> {
-    const redisUrl = process.env.REDIS_URL;
-
     const config: any = {
       adapters,
       userName: `lobechat-bot-${label}`,
     };
 
-    if (redisUrl) {
-      config.state = createRedisState({ url: redisUrl });
+    if (process.env.REDIS_URL) {
+      config.state = createRedisState({ url: process.env.REDIS_URL });
     }
 
     return new Chat(config);
