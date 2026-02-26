@@ -6,7 +6,6 @@ import urlJoin from 'url-join';
 
 import { auth } from '@/auth';
 import { LOBE_LOCALE_COOKIE } from '@/const/locale';
-import { isDesktop } from '@/const/version';
 import { appEnv } from '@/envs/app';
 import { authEnv } from '@/envs/auth';
 import { type Locales } from '@/locales/resources';
@@ -221,10 +220,11 @@ export function defineConfig() {
       userId: session?.user?.id,
     });
 
-    if (!isLoggedIn && !isDesktop) {
+    if (!isLoggedIn) {
       // If request a protected route, redirect to sign-in page
       if (isProtected) {
         logBetterAuth('Request a protected route, redirecting to sign-in page');
+
         const callbackUrl = `${appEnv.APP_URL}${req.nextUrl.pathname}${req.nextUrl.search}`;
         const signInUrl = new URL('/signin', appEnv.APP_URL);
         signInUrl.searchParams.set('callbackUrl', callbackUrl);
