@@ -1,13 +1,4 @@
-import {
-  boolean,
-  index,
-  jsonb,
-  pgTable,
-  text,
-  uniqueIndex,
-  uuid,
-  varchar,
-} from 'drizzle-orm/pg-core';
+import { boolean, index, pgTable, text, uniqueIndex, uuid, varchar } from 'drizzle-orm/pg-core';
 import { createInsertSchema } from 'drizzle-zod';
 
 import { timestamps } from './_helpers';
@@ -23,7 +14,7 @@ import { users } from './user';
 export const agentBotProviders = pgTable(
   'agent_bot_providers',
   {
-    id: uuid('id').primaryKey().notNull(),
+    id: uuid('id').primaryKey().defaultRandom(),
 
     agentId: text('agent_id')
       .references(() => agents.id, { onDelete: 'cascade' })
@@ -39,8 +30,8 @@ export const agentBotProviders = pgTable(
     /** Platform-specific application/bot ID used for webhook routing */
     applicationId: varchar('application_id', { length: 255 }).notNull(),
 
-    /** Platform-specific credentials (botToken, publicKey, signingSecret, etc.) */
-    credentials: jsonb('credentials').$type<Record<string, string>>().notNull(),
+    /** Encrypted credentials string (decrypted to JSON with botToken, publicKey, etc.) */
+    credentials: text('credentials'),
 
     enabled: boolean('enabled').default(true).notNull(),
 

@@ -48,6 +48,13 @@ export const desktopRoutes: RouteConfig[] = [
                 ),
                 path: 'cron/:cronId',
               },
+              {
+                element: dynamicElement(
+                  () => import('../(main)/agent/integration'),
+                  'Desktop > Chat > Integration',
+                ),
+                path: 'integration',
+              },
             ],
             element: <DesktopChatLayout />,
             errorElement: <ErrorBoundary resetPath="/agent" />,
