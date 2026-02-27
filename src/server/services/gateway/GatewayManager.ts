@@ -4,12 +4,12 @@ import { getServerDB } from '@/database/core/db-adaptor';
 import { AgentBotProviderModel } from '@/database/models/agentBotProvider';
 import { KeyVaultsGateKeeper } from '@/server/modules/KeyVaultsEncrypt';
 
-import { DiscordBot } from '../bot/DiscordBot';
-import type { PlatformBot } from '../bot/types';
+import type { PlatformBot, PlatformBotClass } from '../bot/types';
 
 const log = debug('lobe-server:bot-gateway');
 
 export interface GatewayManagerConfig {
+  registry: Record<string, PlatformBotClass>;
   webhookUrl: string;
 }
 
@@ -113,10 +113,12 @@ export class GatewayManager {
   // ------------------------------------------------------------------
 
   private async sync(): Promise<void> {
-    try {
-      await this.syncPlatform('discord');
-    } catch (error) {
-      console.error('[GatewayManager] Sync error:', error);
+    for (const platform of Object.keys(this.config.registry)) {
+      try {
+        await this.syncPlatform(platform);
+      } catch (error) {
+        console.error('[GatewayManager] Sync error for %s:', platform, error);
+      }
     }
   }
 
@@ -178,25 +180,19 @@ export class GatewayManager {
 
   private createBot(
     platform: string,
-    provider: { applicationId: string; credentials: any },
+    provider: { applicationId: string; credentials: Record<string, string> },
   ): PlatformBot | null {
-    const { applicationId, credentials } = provider;
-
-    if (platform === 'discord') {
-      const { botToken, publicKey } = credentials;
-      if (!botToken || !publicKey) {
-        log('Missing credentials for discord:%s', applicationId);
-        return null;
-      }
-      return new DiscordBot({
-        applicationId,
-        botToken,
-        publicKey,
-        webhookUrl: this.config.webhookUrl,
-      });
+    const BotClass = this.config.registry[platform];
+    if (!BotClass) {
+      log('No bot class registered for platform: %s', platform);
+      return null;
     }
 
-    return null;
+    return new BotClass({
+      ...provider.credentials,
+      applicationId: provider.applicationId,
+      webhookUrl: this.config.webhookUrl,
+    });
   }
 }
 

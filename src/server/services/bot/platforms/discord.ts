@@ -1,46 +1,26 @@
 import type { DiscordAdapter } from '@chat-adapter/discord';
 import { createDiscordAdapter } from '@chat-adapter/discord';
-import type { Lock, StateAdapter } from 'chat';
-import { Chat } from 'chat';
+import { createIoRedisState } from '@chat-adapter/state-ioredis';
+import { Chat, ConsoleLogger } from 'chat';
 import debug from 'debug';
 
-import type { PlatformBot } from './types';
+import { getAgentRuntimeRedisClient } from '@/server/modules/AgentRuntime/redis';
+
+import type { PlatformBot } from '../types';
 
 const log = debug('lobe-server:bot:gateway:discord');
 
 const DEFAULT_DURATION_MS = 8 * 60 * 60 * 1000; // 8 hours
 
-class NoopStateAdapter implements StateAdapter {
-  async connect() {}
-  async disconnect() {}
-  async get() {
-    return null;
-  }
-  async set() {}
-  async delete() {}
-  async acquireLock(_threadId: string, _ttlMs: number): Promise<Lock | null> {
-    return { expiresAt: Date.now() + _ttlMs, threadId: _threadId, token: 'noop' };
-  }
-  async extendLock() {
-    return true;
-  }
-  async releaseLock() {}
-  async isSubscribed() {
-    return false;
-  }
-  async subscribe() {}
-  async unsubscribe() {}
-}
-
 export interface DiscordBotConfig {
+  [key: string]: string;
   applicationId: string;
   botToken: string;
-  durationMs?: number;
   publicKey: string;
   webhookUrl: string;
 }
 
-export class DiscordBot implements PlatformBot {
+export class Discord implements PlatformBot {
   readonly platform = 'discord';
   readonly applicationId: string;
 
@@ -66,16 +46,22 @@ export class DiscordBot implements PlatformBot {
       publicKey: this.config.publicKey,
     });
 
-    const bot = new Chat({
+    const chatConfig: any = {
       adapters: { discord: adapter },
-      state: new NoopStateAdapter(),
       userName: `lobehub-gateway-${this.applicationId}`,
-    });
+    };
+
+    const redisClient = getAgentRuntimeRedisClient();
+    if (redisClient) {
+      chatConfig.state = createIoRedisState({ client: redisClient, logger: new ConsoleLogger() });
+    }
+
+    const bot = new Chat(chatConfig);
 
     await bot.initialize();
 
     const discordAdapter = (bot as any).adapters.get('discord') as DiscordAdapter;
-    const durationMs = this.config.durationMs ?? DEFAULT_DURATION_MS;
+    const durationMs = DEFAULT_DURATION_MS;
 
     // startGatewayListener resolves immediately after starting the WS connection in background.
     // Use setTimeout for periodic refresh instead of chaining on the returned promise.

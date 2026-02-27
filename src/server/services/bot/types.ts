@@ -4,3 +4,5 @@ export interface PlatformBot {
   start: () => Promise<void>;
   stop: () => Promise<void>;
 }
+
+export type PlatformBotClass = new (config: any) => PlatformBot;

@@ -1,5 +1,6 @@
 import debug from 'debug';
 
+import { platformBotRegistry } from '../bot/platforms';
 import { createGatewayManager, getGatewayManager } from './GatewayManager';
 
 const log = debug('lobe-server:service:gateway');
@@ -16,7 +17,7 @@ export class GatewayService {
 
     const webhookUrl = `${appEnv.APP_URL}/api/agent/webhooks/discord`;
 
-    const manager = createGatewayManager({ webhookUrl });
+    const manager = createGatewayManager({ registry: platformBotRegistry, webhookUrl });
     await manager.start();
 
     log('GatewayManager started, webhookUrl=%s', webhookUrl);
