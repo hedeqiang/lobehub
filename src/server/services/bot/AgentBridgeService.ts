@@ -3,17 +3,16 @@ import debug from 'debug';
 
 import { getServerDB } from '@/database/core/db-adaptor';
 import { MessageModel } from '@/database/models/message';
-import { StreamEventManager } from '@/server/modules/AgentRuntime';
-import type { StreamEvent } from '@/server/modules/AgentRuntime/StreamEventManager';
 import { AiAgentService } from '@/server/services/aiAgent';
 
 const log = debug('lobe-server:bot:agent-bridge');
 
+const EXECUTION_TIMEOUT = 5 * 60 * 1000; // 5 minutes
+
 /**
  * Platform-agnostic bridge between Chat SDK events and Agent Runtime.
  *
- * Non-streaming mode: triggers agent execution, waits for completion,
- * reads the final assistant message from DB, and posts it at once.
+ * Uses in-process onComplete callback to get agent execution results.
  */
 export class AgentBridgeService {
   /**
@@ -32,7 +31,7 @@ export class AgentBridgeService {
     await thread.startTyping();
 
     try {
-      const reply = await this.executeAndWait(message.text, {
+      const reply = await this.executeWithCallback(message.text, {
         agentId,
         trigger: 'api',
         userId,
@@ -59,7 +58,7 @@ export class AgentBridgeService {
     await thread.startTyping();
 
     try {
-      const reply = await this.executeAndWait(message.text, {
+      const reply = await this.executeWithCallback(message.text, {
         agentId,
         topicId,
         trigger: 'bot',
@@ -74,10 +73,9 @@ export class AgentBridgeService {
   }
 
   /**
-   * Trigger agent execution, wait for it to complete,
-   * then read the final assistant message from DB and return the text.
+   * Trigger agent execution and wait for completion via onComplete callback.
    */
-  private async executeAndWait(
+  private async executeWithCallback(
     prompt: string,
     opts: {
       agentId: string;
@@ -90,82 +88,69 @@ export class AgentBridgeService {
 
     const serverDB = await getServerDB();
     const aiAgentService = new AiAgentService(serverDB, userId);
-
-    const result = await aiAgentService.execAgent({
-      agentId,
-      appContext: topicId ? { topicId } : undefined,
-      autoStart: true,
-      prompt,
-      stream: false,
-      trigger,
-      userInterventionConfig: { approvalMode: 'headless' },
-    });
-
-    log(
-      'executeAndWait: operationId=%s, assistantMessageId=%s',
-      result.operationId,
-      result.assistantMessageId,
-    );
-
-    // Wait for agent_runtime_end event
-    await this.waitForCompletion(result.operationId);
-
-    // Read the final assistant message from DB
     const messageModel = new MessageModel(serverDB, userId);
-    const assistantMessage = await messageModel.findById(result.assistantMessageId);
 
-    if (!assistantMessage?.content) {
-      throw new Error('Agent completed but no response content found');
-    }
+    return new Promise<string>((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error(`Agent execution timed out`));
+      }, EXECUTION_TIMEOUT);
 
-    log('executeAndWait: got response (%d chars)', assistantMessage.content.length);
-    return assistantMessage.content;
-  }
+      let assistantMessageId: string;
 
-  /**
-   * Subscribe to stream events and resolve when `agent_runtime_end` is received.
-   */
-  private waitForCompletion(operationId: string): Promise<void> {
-    const streamManager = new StreamEventManager();
-    const abortController = new AbortController();
+      aiAgentService
+        .execAgent({
+          agentId,
+          appContext: topicId ? { topicId } : undefined,
+          autoStart: true,
+          prompt,
+          stepCallbacks: {
+            onComplete: async ({ finalState, reason }) => {
+              clearTimeout(timeout);
 
-    return new Promise<void>((resolve, reject) => {
-      const timeout = setTimeout(
-        () => {
-          abortController.abort();
-          reject(new Error(`Agent execution timed out for operation ${operationId}`));
-        },
-        5 * 60 * 1000,
-      ); // 5 minutes
+              log(
+                'onComplete: reason=%s, assistantMessageId=%s',
+                reason,
+                assistantMessageId,
+              );
 
-      streamManager
-        .subscribeStreamEvents(
-          operationId,
-          '0',
-          (events: StreamEvent[]) => {
-            for (const event of events) {
-              if (event.type === 'agent_runtime_end') {
-                clearTimeout(timeout);
-                abortController.abort();
-                resolve();
+              if (reason === 'error') {
+                const errorMsg =
+                  finalState.error?.message || finalState.error || 'Agent execution failed';
+                reject(new Error(String(errorMsg)));
                 return;
               }
-              if (event.type === 'error') {
-                clearTimeout(timeout);
-                abortController.abort();
-                reject(new Error(event.data?.message || 'Agent execution failed'));
-                return;
+
+              try {
+                const assistantMessage = await messageModel.findById(assistantMessageId);
+
+                if (!assistantMessage?.content) {
+                  reject(new Error('Agent completed but no response content found'));
+                  return;
+                }
+
+                log('executeWithCallback: got response (%d chars)', assistantMessage.content.length);
+                resolve(assistantMessage.content);
+              } catch (error) {
+                reject(error);
               }
-            }
+            },
           },
-          abortController.signal,
-        )
-        .catch((err) => {
-          // subscribeStreamEvents exits when aborted — ignore abort errors
-          if (!abortController.signal.aborted) {
-            clearTimeout(timeout);
-            reject(err instanceof Error ? err : new Error(String(err)));
-          }
+          stream: false,
+          trigger,
+          userInterventionConfig: { approvalMode: 'headless' },
+        })
+        .then((result) => {
+          assistantMessageId = result.assistantMessageId;
+
+          log(
+            'executeWithCallback: operationId=%s, assistantMessageId=%s',
+            result.operationId,
+            result.assistantMessageId,
+          );
+        })
+        .catch((error) => {
+          clearTimeout(timeout);
+          reject(error);
         });
     });
   }
