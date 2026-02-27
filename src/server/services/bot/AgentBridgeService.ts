@@ -62,9 +62,10 @@ export class AgentBridgeService {
       const reply = await this.executeAndWait(message.text, {
         agentId,
         topicId,
-        trigger: 'api',
+        trigger: 'bot',
         userId,
       });
+
       await thread.post(reply);
     } catch (error) {
       log('handleSubscribedMessage error: %O', error);

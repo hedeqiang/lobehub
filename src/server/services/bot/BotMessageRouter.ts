@@ -62,45 +62,6 @@ export class BotMessageRouter {
     };
   }
 
-  /**
-   * Get all active Discord bot configurations for Gateway connections.
-   * Used by the Discord Gateway worker to start WebSocket listeners.
-   */
-  async getDiscordBotConfigs(): Promise<
-    Array<{
-      agentId: string;
-      applicationId: string;
-      botToken: string;
-      publicKey: string;
-      userId: string;
-    }>
-  > {
-    await this.ensureInitialized();
-
-    const configs: Array<{
-      agentId: string;
-      applicationId: string;
-      botToken: string;
-      publicKey: string;
-      userId: string;
-    }> = [];
-
-    for (const [appId, info] of this.discordAgentMap) {
-      const creds = this.credentialsByAppId.get(appId);
-      if (creds) {
-        configs.push({
-          agentId: info.agentId,
-          applicationId: appId,
-          botToken: creds.botToken,
-          publicKey: creds.publicKey,
-          userId: info.userId,
-        });
-      }
-    }
-
-    return configs;
-  }
-
   // ------------------------------------------------------------------
   // Discord webhook routing
   // ------------------------------------------------------------------
