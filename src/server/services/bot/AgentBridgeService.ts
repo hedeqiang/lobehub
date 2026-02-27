@@ -1,14 +1,19 @@
 import type { ChatTopicBotContext } from '@lobechat/types';
-import type { Message, Thread } from 'chat';
+import type { Message, SentMessage, Thread } from 'chat';
+import { emoji } from 'chat';
 import debug from 'debug';
 
 import { getServerDB } from '@/database/core/db-adaptor';
-import { MessageModel } from '@/database/models/message';
 import { AiAgentService } from '@/server/services/aiAgent';
+
+import { randomAck } from './ackPhrases';
 
 const log = debug('lobe-server:bot:agent-bridge');
 
 const EXECUTION_TIMEOUT = 30 * 60 * 1000; // 30 minutes
+
+// Status emoji added on receive, removed on complete
+const RECEIVED_EMOJI = emoji.eyes;
 
 /**
  * Extract a human-readable error message from agent runtime error objects.
@@ -37,9 +42,28 @@ function extractErrorMessage(err: unknown): string {
 }
 
 /**
+ * Fire-and-forget wrapper for reaction operations.
+ * Reactions should never block or fail the main flow.
+ */
+async function safeReaction(fn: () => Promise<void>, label: string): Promise<void> {
+  try {
+    await fn();
+  } catch (error) {
+    log('safeReaction [%s] failed: %O', label, error);
+  }
+}
+
+interface BridgeHandlerOpts {
+  agentId: string;
+  botContext?: ChatTopicBotContext;
+  userId: string;
+}
+
+/**
  * Platform-agnostic bridge between Chat SDK events and Agent Runtime.
  *
  * Uses in-process onComplete callback to get agent execution results.
+ * Provides real-time feedback via emoji reactions and editable progress messages.
  */
 export class AgentBridgeService {
   /**
@@ -48,17 +72,24 @@ export class AgentBridgeService {
   async handleMention(
     thread: Thread<{ topicId?: string }>,
     message: Message,
-    opts: { agentId: string; botContext?: ChatTopicBotContext; userId: string },
+    opts: BridgeHandlerOpts,
   ): Promise<void> {
     const { agentId, botContext, userId } = opts;
 
     log('handleMention: agentId=%s, user=%s, text=%s', agentId, userId, message.text.slice(0, 80));
 
+    // Immediate feedback: mark as received + show typing
+    await safeReaction(
+      () => thread.adapter.addReaction(thread.id, message.id, RECEIVED_EMOJI),
+      'add eyes',
+    );
     await thread.subscribe();
     await thread.startTyping();
 
     try {
-      const { reply, topicId } = await this.executeWithCallback(message.text, {
+      // executeWithCallback handles progress message (post + edit at each step)
+      // The final reply is edited into the progress message by onComplete
+      const { topicId } = await this.executeWithCallback(thread, message, {
         agentId,
         botContext,
         trigger: 'bot',
@@ -70,12 +101,13 @@ export class AgentBridgeService {
         await thread.setState({ topicId });
         log('handleMention: stored topicId=%s in thread=%s state', topicId, thread.id);
       }
-
-      await thread.post(reply);
     } catch (error) {
       log('handleMention error: %O', error);
       const msg = error instanceof Error ? error.message : String(error);
       await thread.post(`**Agent Execution Failed**\n\`\`\`\n${msg}\n\`\`\``);
+    } finally {
+      // Always clean up reactions
+      await this.removeReceivedReaction(thread, message);
     }
   }
 
@@ -85,7 +117,7 @@ export class AgentBridgeService {
   async handleSubscribedMessage(
     thread: Thread<{ topicId?: string }>,
     message: Message,
-    opts: { agentId: string; botContext?: ChatTopicBotContext; userId: string },
+    opts: BridgeHandlerOpts,
   ): Promise<void> {
     const { agentId, botContext, userId } = opts;
     const threadState = await thread.state;
@@ -98,29 +130,37 @@ export class AgentBridgeService {
       return this.handleMention(thread, message, { agentId, botContext, userId });
     }
 
+    // Immediate feedback: mark as received + show typing
+    await safeReaction(
+      () => thread.adapter.addReaction(thread.id, message.id, RECEIVED_EMOJI),
+      'add eyes',
+    );
     await thread.startTyping();
 
     try {
-      const { reply } = await this.executeWithCallback(message.text, {
+      // executeWithCallback handles progress message (post + edit at each step)
+      await this.executeWithCallback(thread, message, {
         agentId,
         topicId,
         trigger: 'bot',
         userId,
       });
-
-      await thread.post(reply);
     } catch (error) {
       log('handleSubscribedMessage error: %O', error);
       const msg = error instanceof Error ? error.message : String(error);
       await thread.post(`**Agent Execution Failed**. Details:\n\`\`\`\n${msg}\n\`\`\``);
+    } finally {
+      await this.removeReceivedReaction(thread, message);
     }
   }
 
   /**
    * Trigger agent execution and wait for completion via onComplete callback.
+   * Posts an editable progress message and updates it at each step.
    */
   private async executeWithCallback(
-    prompt: string,
+    thread: Thread<{ topicId?: string }>,
+    userMessage: Message,
     opts: {
       agentId: string;
       botContext?: ChatTopicBotContext;
@@ -133,7 +173,17 @@ export class AgentBridgeService {
 
     const serverDB = await getServerDB();
     const aiAgentService = new AiAgentService(serverDB, userId);
-    const messageModel = new MessageModel(serverDB, userId);
+
+    // Post initial progress message
+    let progressMessage: SentMessage | undefined;
+    try {
+      progressMessage = await thread.post(randomAck());
+    } catch (error) {
+      log('executeWithCallback: failed to post progress message: %O', error);
+    }
+
+    // Track the last LLM content for showing during tool execution
+    let lastLLMContent = '';
 
     return new Promise<{ reply: string; topicId: string }>((resolve, reject) => {
       const timeout = setTimeout(() => {
@@ -149,22 +199,70 @@ export class AgentBridgeService {
           appContext: topicId ? { topicId } : undefined,
           autoStart: true,
           botContext,
-          prompt,
+          prompt: userMessage.text,
           stepCallbacks: {
+            onAfterStep: async ({ stepResult, shouldContinue }) => {
+              if (!shouldContinue || !progressMessage) return;
+
+              // Extract LLM content from this step
+              const llmEvent = stepResult?.events?.find(
+                (e: { type: string }) => e.type === 'llm_result',
+              );
+              if (llmEvent) {
+                const content = (llmEvent as any)?.result?.content;
+                if (content) lastLLMContent = content;
+              }
+
+              // Build progress text based on next step type
+              const nextPhase = stepResult?.nextContext?.phase;
+              let progressText = '';
+
+              if (nextPhase === 'tool_result' || nextPhase === 'tools_batch_result') {
+                // LLM step just finished, tool execution is next
+                const toolCalls = (llmEvent as any)?.result?.tool_calls;
+                const toolNames = Array.isArray(toolCalls)
+                  ? toolCalls.map((tc: any) => tc.function?.name || 'tool').join(', ')
+                  : 'tool';
+
+                progressText = lastLLMContent
+                  ? `${lastLLMContent}\n\n${emoji.wrench} Calling ${toolNames}...`
+                  : `${emoji.wrench} Calling ${toolNames}...`;
+              } else {
+                // Tool step just finished, LLM is next
+                progressText = lastLLMContent
+                  ? `${lastLLMContent}\n\n${emoji.thinking} Processing...`
+                  : `${emoji.thinking} Processing...`;
+              }
+
+              try {
+                progressMessage = await progressMessage.edit(progressText);
+              } catch (error) {
+                log('executeWithCallback: failed to edit progress message: %O', error);
+              }
+            },
+
             onComplete: async ({ finalState, reason }) => {
               clearTimeout(timeout);
 
               log('onComplete: reason=%s, assistantMessageId=%s', reason, assistantMessageId);
 
               if (reason === 'error') {
+                // Update progress message with error
+                if (progressMessage) {
+                  try {
+                    await progressMessage.edit(
+                      `**Agent Execution Failed**\n\`\`\`\n${extractErrorMessage(finalState.error)}\n\`\`\``,
+                    );
+                  } catch {
+                    // ignore edit failure
+                  }
+                }
                 reject(new Error(extractErrorMessage(finalState.error)));
                 return;
               }
 
               try {
                 // Extract reply from finalState.messages (accumulated across all steps)
-                // instead of reading from DB, because each step overwrites the assistant
-                // message — a final empty step would clear the content in DB.
                 const lastAssistantContent = finalState.messages
                   ?.slice()
                   .reverse()
@@ -173,6 +271,15 @@ export class AgentBridgeService {
                   )?.content;
 
                 if (lastAssistantContent) {
+                  // Update progress message to final reply
+                  if (progressMessage) {
+                    try {
+                      await progressMessage.edit(lastAssistantContent);
+                    } catch (error) {
+                      log('executeWithCallback: failed to edit final progress message: %O', error);
+                    }
+                  }
+
                   log(
                     'executeWithCallback: got response from finalState (%d chars)',
                     lastAssistantContent.length,
@@ -181,19 +288,7 @@ export class AgentBridgeService {
                   return;
                 }
 
-                // Fallback: try reading from DB
-                const assistantMessage = await messageModel.findById(assistantMessageId);
-
-                if (!assistantMessage?.content) {
-                  reject(new Error('Agent completed but no response content found'));
-                  return;
-                }
-
-                log(
-                  'executeWithCallback: got response from DB (%d chars)',
-                  assistantMessage.content.length,
-                );
-                resolve({ reply: assistantMessage.content, topicId: resolvedTopicId });
+                reject(new Error('Agent completed but no response content found'));
               } catch (error) {
                 reject(error);
               }
@@ -218,5 +313,18 @@ export class AgentBridgeService {
           reject(error);
         });
     });
+  }
+
+  /**
+   * Remove the received reaction from a user message (fire-and-forget).
+   */
+  private async removeReceivedReaction(
+    thread: Thread<{ topicId?: string }>,
+    message: Message,
+  ): Promise<void> {
+    await safeReaction(
+      () => thread.adapter.removeReaction(thread.id, message.id, RECEIVED_EMOJI),
+      'remove eyes',
+    );
   }
 }
