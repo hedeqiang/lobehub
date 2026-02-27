@@ -1,4 +1,8 @@
+import debug from 'debug';
+
 import { getBotMessageRouter } from '@/server/services/bot';
+
+const log = debug('lobe-server:bot:webhook-route');
 
 /**
  * Unified webhook endpoint for Chat SDK bot platforms (Discord, Slack, etc.).
@@ -13,6 +17,9 @@ export const POST = async (
   { params }: { params: Promise<{ platform: string }> },
 ): Promise<Response> => {
   const { platform } = await params;
+
+  log('Received webhook: platform=%s, url=%s', platform, req.url);
+
   const router = getBotMessageRouter();
   const handler = router.getWebhookHandler(platform);
   return handler(req);

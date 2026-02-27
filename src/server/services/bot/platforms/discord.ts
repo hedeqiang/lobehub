@@ -91,7 +91,7 @@ export class Discord implements PlatformBot {
       });
     }, durationMs);
 
-    log('DiscordBot appId=%s started', this.applicationId);
+    log('DiscordBot appId=%s started, webhookUrl=%s', this.applicationId, this.config.webhookUrl);
   }
 
   async stop(): Promise<void> {

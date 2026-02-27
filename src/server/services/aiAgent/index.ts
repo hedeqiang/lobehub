@@ -2,6 +2,7 @@ import { type AgentRuntimeContext, type AgentState } from '@lobechat/agent-runti
 import { type LobeToolManifest } from '@lobechat/context-engine';
 import { type LobeChatDatabase } from '@lobechat/database';
 import {
+  type ChatTopicBotContext,
   type ExecAgentParams,
   type ExecAgentResult,
   type ExecGroupAgentParams,
@@ -59,6 +60,8 @@ function formatErrorForMetadata(error: unknown): Record<string, any> | undefined
  * This extends the public ExecAgentParams with server-side only options
  */
 interface InternalExecAgentParams extends ExecAgentParams {
+  /** Bot context for topic metadata (platform, applicationId, platformThreadId) */
+  botContext?: ChatTopicBotContext;
   /**
    * Completion webhook configuration
    * Persisted in Redis state, triggered via HTTP POST when the operation completes.
@@ -144,6 +147,7 @@ export class AiAgentService {
       prompt,
       appContext,
       autoStart = true,
+      botContext,
       existingMessageIds = [],
       stepCallbacks,
       stream,
@@ -179,8 +183,11 @@ export class AiAgentService {
     // 2. Handle topic creation: if no topicId provided, create a new topic; otherwise reuse existing
     let topicId = appContext?.topicId;
     if (!topicId) {
-      // Prepare metadata with cronJobId if provided
-      const metadata = cronJobId ? { cronJobId } : undefined;
+      // Prepare metadata with cronJobId and botContext if provided
+      const metadata =
+        cronJobId || botContext
+          ? { bot: botContext, cronJobId: cronJobId || undefined }
+          : undefined;
 
       const newTopic = await this.topicModel.create({
         agentId: resolvedAgentId,

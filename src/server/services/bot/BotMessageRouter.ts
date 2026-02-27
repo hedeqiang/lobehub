@@ -80,6 +80,26 @@ export class BotMessageRouter {
         [...this.botInstancesByToken.keys()].map((t) => t.slice(0, 10)),
       );
 
+      // Log forwarded event details for debugging
+      try {
+        const bodyText = new TextDecoder().decode(bodyBuffer);
+        const event = JSON.parse(bodyText);
+
+        if (event.type === 'GATEWAY_MESSAGE_CREATE') {
+          const d = event.data;
+          log(
+            'MESSAGE_CREATE: author=%s (id=%s, bot=%s), mentions=%o, content=%s',
+            d?.author?.username,
+            d?.author?.id,
+            d?.author?.bot,
+            d?.mentions?.map((m: any) => ({ id: m.id, username: m.username })),
+            d?.content?.slice(0, 100),
+          );
+        }
+      } catch {
+        // ignore parse errors
+      }
+
       const bot = this.botInstancesByToken.get(gatewayToken);
       if (bot?.webhooks && 'discord' in bot.webhooks) {
         log('Matched bot by token');
@@ -133,12 +153,13 @@ export class BotMessageRouter {
   // Initialisation
   // ------------------------------------------------------------------
 
-  private initialized = false;
+  private initPromise: Promise<void> | null = null;
 
   private async ensureInitialized(): Promise<void> {
-    if (this.initialized) return;
-    await this.initialize();
-    this.initialized = true;
+    if (!this.initPromise) {
+      this.initPromise = this.initialize();
+    }
+    await this.initPromise;
   }
 
   async initialize(): Promise<void> {
@@ -184,7 +205,7 @@ export class BotMessageRouter {
         };
 
         const bot = this.createBot(adapters, `agent-${agentId}`);
-        this.registerHandlers(bot, { agentId, userId });
+        this.registerHandlers(bot, { agentId, applicationId, platform: 'discord', userId });
         await bot.initialize();
 
         this.botInstances.set(applicationId, bot);
@@ -217,12 +238,19 @@ export class BotMessageRouter {
     return new Chat(config);
   }
 
-  private registerHandlers(bot: Chat<any>, info: ResolvedAgentInfo): void {
-    const { agentId, userId } = info;
+  private registerHandlers(
+    bot: Chat<any>,
+    info: ResolvedAgentInfo & { applicationId: string; platform: string },
+  ): void {
+    const { agentId, applicationId, platform, userId } = info;
 
     bot.onNewMention(async (thread, message) => {
       log('onNewMention: agent=%s, author=%s', agentId, message.author.userName);
-      await this.bridge.handleMention(thread, message, { agentId, userId });
+      await this.bridge.handleMention(thread, message, {
+        agentId,
+        botContext: { applicationId, platform, platformThreadId: thread.id },
+        userId,
+      });
     });
 
     bot.onSubscribedMessage(async (thread, message) => {
@@ -232,7 +260,7 @@ export class BotMessageRouter {
 
       await this.bridge.handleSubscribedMessage(thread, message, {
         agentId,
-        topicId: '',
+        botContext: { applicationId, platform, platformThreadId: thread.id },
         userId,
       });
     });
