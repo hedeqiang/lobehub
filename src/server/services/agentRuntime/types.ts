@@ -103,6 +103,11 @@ export interface OperationCreationParams {
    * Used to inject custom logic at different stages of step execution
    */
   stepCallbacks?: StepLifecycleCallbacks;
+  /**
+   * Whether the LLM call should use streaming.
+   * Defaults to true. Set to false for non-streaming scenarios (e.g., bot integrations).
+   */
+  stream?: boolean;
   toolManifestMap: Record<string, LobeToolManifest>;
   tools?: any[];
   toolSourceMap?: Record<string, 'builtin' | 'plugin' | 'mcp' | 'klavis' | 'lobehubSkill'>;

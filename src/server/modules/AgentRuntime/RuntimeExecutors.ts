@@ -39,6 +39,7 @@ export interface RuntimeExecutorContext {
   operationId: string;
   serverDB: LobeChatDatabase;
   stepIndex: number;
+  stream?: boolean;
   streamManager: IStreamEventManager;
   toolExecutionService: ToolExecutionService;
   topicId?: string;
@@ -194,7 +195,8 @@ export const createRuntimeExecutors = (
       const modelRuntime = await initModelRuntimeFromDB(ctx.serverDB, ctx.userId!, provider);
 
       // Construct ChatStreamPayload
-      const chatPayload = { messages: processedMessages, model, tools };
+      const stream = ctx.stream ?? true;
+      const chatPayload = { messages: processedMessages, model, stream, tools };
 
       log(
         `${stagePrefix} calling model-runtime chat (model: %s, messages: %d, tools: %d)`,

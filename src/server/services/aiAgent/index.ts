@@ -75,6 +75,11 @@ interface InternalExecAgentParams extends ExecAgentParams {
   maxSteps?: number;
   /** Step lifecycle callbacks for operation tracking (server-side only) */
   stepCallbacks?: StepLifecycleCallbacks;
+  /**
+   * Whether the LLM call should use streaming.
+   * Defaults to true. Set to false for non-streaming scenarios (e.g., bot integrations).
+   */
+  stream?: boolean;
   /** Topic creation trigger source ('cron' | 'chat' | 'api') */
   trigger?: string;
   /**
@@ -141,6 +146,7 @@ export class AiAgentService {
       autoStart = true,
       existingMessageIds = [],
       stepCallbacks,
+      stream,
       trigger,
       cronJobId,
       evalContext,
@@ -394,6 +400,7 @@ export class AiAgentService {
         modelRuntimeConfig: { model, provider },
         operationId,
         stepCallbacks,
+        stream,
         toolManifestMap,
         toolSourceMap,
         tools,

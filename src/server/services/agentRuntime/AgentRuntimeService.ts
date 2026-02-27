@@ -251,6 +251,7 @@ export class AgentRuntimeService {
       modelRuntimeConfig,
       userId,
       autoStart = true,
+      stream,
       tools,
       initialMessages = [],
       appContext,
@@ -280,6 +281,7 @@ export class AgentRuntimeService {
           evalContext,
           // need be removed
           modelRuntimeConfig,
+          stream,
           userId,
           workingDirectory: agentConfig?.chatConfig?.localSystem?.workingDirectory,
           ...appContext,
@@ -1047,6 +1049,7 @@ export class AgentRuntimeService {
       operationId,
       serverDB: this.serverDB,
       stepIndex,
+      stream: metadata?.stream,
       streamManager: this.streamManager,
       toolExecutionService: this.toolExecutionService,
       topicId: metadata?.topicId,

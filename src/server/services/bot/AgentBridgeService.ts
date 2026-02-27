@@ -96,6 +96,7 @@ export class AgentBridgeService {
       appContext: topicId ? { topicId } : undefined,
       autoStart: true,
       prompt,
+      stream: false,
       trigger,
       userInterventionConfig: { approvalMode: 'headless' },
     });
