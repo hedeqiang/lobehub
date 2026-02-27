@@ -15,9 +15,8 @@ export class GatewayService {
     const { appEnv } = await import('@/envs/app');
 
     const webhookUrl = `${appEnv.APP_URL}/api/agent/webhooks/discord`;
-    const syncIntervalMs = Number(process.env.DISCORD_SYNC_INTERVAL_MS) || 30_000;
 
-    const manager = createGatewayManager({ syncIntervalMs, webhookUrl });
+    const manager = createGatewayManager({ webhookUrl });
     await manager.start();
 
     log('GatewayManager started, webhookUrl=%s', webhookUrl);

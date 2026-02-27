@@ -10,7 +10,7 @@ import { KeyVaultsGateKeeper } from '@/server/modules/KeyVaultsEncrypt';
 
 import { AgentBridgeService } from './AgentBridgeService';
 
-const log = debug('lobe-server:bot:provider-manager');
+const log = debug('lobe-server:bot:message-router');
 
 interface ResolvedAgentInfo {
   agentId: string;
@@ -24,12 +24,10 @@ interface DiscordCredentials {
 }
 
 /**
- * Manages Chat SDK Bot instances, maps incoming webhook requests to the
- * correct agent, and wires up the platform-agnostic AgentBridgeService.
- *
- * All bot configurations are loaded from the agent_bot_providers table.
+ * Routes incoming webhook events to the correct Chat SDK Bot instance
+ * and triggers message processing via AgentBridgeService.
  */
-export class BotProviderManager {
+export class BotMessageRouter {
   private bridge = new AgentBridgeService();
 
   /** botToken → Chat instance (for webhook routing via x-discord-gateway-token) */
@@ -183,7 +181,7 @@ export class BotProviderManager {
   }
 
   async initialize(): Promise<void> {
-    log('Initializing BotProviderManager');
+    log('Initializing BotMessageRouter');
 
     await this.loadAgentBots();
 
@@ -226,6 +224,7 @@ export class BotProviderManager {
 
         const bot = this.createBot(adapters, `agent-${agentId}`);
         this.registerHandlers(bot, { agentId, userId });
+        await bot.initialize();
 
         this.botInstances.set(applicationId, bot);
         this.botInstancesByToken.set(botToken, bot);
@@ -283,11 +282,11 @@ export class BotProviderManager {
 // Singleton
 // ------------------------------------------------------------------
 
-let instance: BotProviderManager | null = null;
+let instance: BotMessageRouter | null = null;
 
-export function getBotProviderManager(): BotProviderManager {
+export function getBotMessageRouter(): BotMessageRouter {
   if (!instance) {
-    instance = new BotProviderManager();
+    instance = new BotMessageRouter();
   }
   return instance;
 }

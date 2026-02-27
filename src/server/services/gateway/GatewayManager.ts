@@ -10,14 +10,12 @@ import type { PlatformBot } from '../bot/types';
 const log = debug('lobe-server:bot-gateway');
 
 export interface GatewayManagerConfig {
-  syncIntervalMs?: number;
   webhookUrl: string;
 }
 
 export class GatewayManager {
   private bots = new Map<string, PlatformBot>();
   private running = false;
-  private syncInterval: ReturnType<typeof setInterval> | null = null;
   private config: GatewayManagerConfig;
 
   constructor(config: GatewayManagerConfig) {
@@ -41,15 +39,8 @@ export class GatewayManager {
     log('Starting GatewayManager, webhookUrl=%s', this.config.webhookUrl);
 
     await this.sync().catch((err) => {
-      console.error('[GatewayManager] Initial sync failed (will retry):', err);
+      console.error('[GatewayManager] Initial sync failed:', err);
     });
-
-    const intervalMs = this.config.syncIntervalMs ?? 300_000;
-    this.syncInterval = setInterval(() => {
-      this.sync().catch((err) => {
-        log('Periodic sync failed: %O', err);
-      });
-    }, intervalMs);
 
     this.running = true;
     log('GatewayManager started with %d bots', this.bots.size);
@@ -59,11 +50,6 @@ export class GatewayManager {
     if (!this.running) return;
 
     log('Stopping GatewayManager');
-
-    if (this.syncInterval) {
-      clearInterval(this.syncInterval);
-      this.syncInterval = null;
-    }
 
     for (const [key, bot] of this.bots) {
       log('Stopping bot %s', key);
@@ -135,8 +121,6 @@ export class GatewayManager {
   }
 
   private async syncPlatform(platform: string): Promise<void> {
-    console.info('[GatewayManager] Sync: querying providers for platform=%s', platform);
-
     const serverDB = await getServerDB();
     const gateKeeper = await KeyVaultsGateKeeper.initWithEnvKey();
     const providers = await AgentBotProviderModel.findEnabledByPlatform(
@@ -145,11 +129,7 @@ export class GatewayManager {
       gateKeeper,
     );
 
-    console.info(
-      '[GatewayManager] Sync: found %d enabled providers for %s',
-      providers.length,
-      platform,
-    );
+    log('Sync: found %d enabled providers for %s', providers.length, platform);
 
     const activeKeys = new Set<string>();
 
