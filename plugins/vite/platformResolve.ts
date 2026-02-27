@@ -18,7 +18,7 @@ export function vitePlatformResolve(platform?: Platform): Plugin {
   if (platform) suffixes.push(`.${platform}`);
   suffixes.push('.vite');
   const EXT_RE = /\.(ts|tsx|js|jsx)$/;
-  const PLATFORM_RE = /\.(vite|web|mobile|desktop)\.(ts|tsx|js|jsx)$/;
+  const PLATFORM_RE = /\.(?:vite|web|mobile|desktop)\.(?:ts|tsx|js|jsx)$/;
 
   return {
     enforce: 'pre',
