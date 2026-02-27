@@ -1,9 +1,8 @@
 'use client';
 
-import { ContextMenuHost, ModalHost, ToastHost, TooltipGroup } from '@lobehub/ui';
+import { TooltipGroup } from '@lobehub/ui';
 import { domMax, LazyMotion } from 'motion/react';
-import { type PropsWithChildren, useLayoutEffect } from 'react';
-import { memo, Suspense } from 'react';
+import { lazy, memo, type PropsWithChildren, Suspense, useLayoutEffect } from 'react';
 
 import { LobeAnalyticsProviderWrapper } from '@/components/Analytics/LobeAnalyticsProviderWrapper';
 import { DragUploadProvider } from '@/components/DragUploadZone/DragUploadProvider';
@@ -21,6 +20,12 @@ import { ServerConfigStoreProvider } from '@/store/serverConfig/Provider';
 import type { SPAServerConfig } from '@/types/spaServerConfig';
 
 import Locale from './Locale';
+
+const ModalHost = lazy(() => import('@lobehub/ui').then((m) => ({ default: m.ModalHost })));
+const ToastHost = lazy(() => import('@lobehub/ui').then((m) => ({ default: m.ToastHost })));
+const ContextMenuHost = lazy(() =>
+  import('@lobehub/ui').then((m) => ({ default: m.ContextMenuHost })),
+);
 
 const SPAGlobalProvider = memo<PropsWithChildren>(({ children }) => {
   useLayoutEffect(() => {
@@ -54,9 +59,11 @@ const SPAGlobalProvider = memo<PropsWithChildren>(({ children }) => {
                         <TooltipGroup layoutAnimation={false}>
                           <LobeAnalyticsProviderWrapper>{children}</LobeAnalyticsProviderWrapper>
                         </TooltipGroup>
-                        <ModalHost />
-                        <ToastHost />
-                        <ContextMenuHost />
+                        <Suspense>
+                          <ModalHost />
+                          <ToastHost />
+                          <ContextMenuHost />
+                        </Suspense>
                       </LazyMotion>
                     </DragUploadProvider>
                   </GroupWizardProvider>

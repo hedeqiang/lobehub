@@ -67,6 +67,9 @@ function sharedManualChunks(id: string): string | undefined {
     return `i18n-${locale}`;
   }
 
+  // model-bank (monorepo package — split before node_modules guard)
+  if (id.includes('model-bank')) return 'providerConfig';
+
   if (!id.includes('node_modules')) return;
 
   // antd locale → merge into i18n-{locale}
@@ -89,17 +92,11 @@ function sharedManualChunks(id: string): string | undefined {
   // es-toolkit
   if (id.includes('es-toolkit')) return 'vendor-es-toolkit';
 
-  // antd + antd-style
-  if (id.includes('/antd/') || id.includes('/antd-style/')) return 'vendor-antd';
-
   // emotion (CSS-in-JS runtime)
   if (id.includes('@emotion/')) return 'vendor-emotion';
 
   // motion (framer-motion)
   if (id.includes('/motion/') || id.includes('framer-motion')) return 'vendor-motion';
-
-  // @lobehub/ui
-  if (id.includes('@lobehub/ui')) return 'vendor-lobehub-ui';
 }
 
 export const sharedRollupOutput = {
