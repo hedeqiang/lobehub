@@ -8,7 +8,7 @@ import { createAppRouter } from '@/utils/router';
 
 import { desktopRoutes } from './app/[variants]/router/desktopRouter.config';
 
-const debugProxyBase = '/__dangerous_local_dev_proxy';
+const debugProxyBase = '/_dangerous_local_dev_proxy';
 const basename =
   window.__DEBUG_PROXY__ || window.location.pathname.startsWith(debugProxyBase)
     ? debugProxyBase

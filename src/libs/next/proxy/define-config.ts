@@ -20,7 +20,7 @@ const logDefault = debug('middleware:default');
 const logBetterAuth = debug('middleware:better-auth');
 
 // Dev-only debug proxy route should bypass all middleware rewrites.
-const dangerousLocalDevProxyRoute = '/__dangerous_local_dev_proxy';
+const dangerousLocalDevProxyRoute = '/_dangerous_local_dev_proxy';
 
 export function defineConfig() {
   const backendApiEndpoints = ['/api', '/trpc', '/webapi', '/oidc'];
