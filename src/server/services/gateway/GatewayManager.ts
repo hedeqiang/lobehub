@@ -4,10 +4,10 @@ import { getServerDB } from '@/database/core/db-adaptor';
 import { AgentBotProviderModel } from '@/database/models/agentBotProvider';
 import { KeyVaultsGateKeeper } from '@/server/modules/KeyVaultsEncrypt';
 
-import { DiscordBot } from './DiscordBot';
-import type { PlatformBot } from './types';
+import { DiscordBot } from '../bot/DiscordBot';
+import type { PlatformBot } from '../bot/types';
 
-const log = debug('lobe-server:bot:gateway');
+const log = debug('lobe-server:bot-gateway');
 
 export interface GatewayManagerConfig {
   syncIntervalMs?: number;
@@ -41,7 +41,7 @@ export class GatewayManager {
     log('Starting GatewayManager, webhookUrl=%s', this.config.webhookUrl);
 
     await this.sync().catch((err) => {
-      log('Initial sync failed (will retry): %O', err);
+      console.error('[GatewayManager] Initial sync failed (will retry):', err);
     });
 
     const intervalMs = this.config.syncIntervalMs ?? 300_000;
@@ -130,12 +130,12 @@ export class GatewayManager {
     try {
       await this.syncPlatform('discord');
     } catch (error) {
-      log('Sync error: %O', error);
+      console.error('[GatewayManager] Sync error:', error);
     }
   }
 
   private async syncPlatform(platform: string): Promise<void> {
-    log('Sync: querying providers for platform=%s', platform);
+    console.info('[GatewayManager] Sync: querying providers for platform=%s', platform);
 
     const serverDB = await getServerDB();
     const gateKeeper = await KeyVaultsGateKeeper.initWithEnvKey();
@@ -145,7 +145,11 @@ export class GatewayManager {
       gateKeeper,
     );
 
-    log('Sync: found %d enabled providers for %s', providers.length, platform);
+    console.info(
+      '[GatewayManager] Sync: found %d enabled providers for %s',
+      providers.length,
+      platform,
+    );
 
     const activeKeys = new Set<string>();
 

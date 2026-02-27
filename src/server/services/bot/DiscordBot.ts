@@ -46,6 +46,7 @@ export class DiscordBot implements PlatformBot {
 
   private abort = new AbortController();
   private config: DiscordBotConfig;
+  private refreshTimer: ReturnType<typeof setTimeout> | null = null;
   private stopped = false;
 
   constructor(config: DiscordBotConfig) {
@@ -76,7 +77,9 @@ export class DiscordBot implements PlatformBot {
     const discordAdapter = (bot as any).adapters.get('discord') as DiscordAdapter;
     const durationMs = this.config.durationMs ?? DEFAULT_DURATION_MS;
 
-    const responsePromise = discordAdapter.startGatewayListener(
+    // startGatewayListener resolves immediately after starting the WS connection in background.
+    // Use setTimeout for periodic refresh instead of chaining on the returned promise.
+    await discordAdapter.startGatewayListener(
       {
         waitUntil: (task: Promise<any>) => {
           task.catch(() => {});
@@ -87,27 +90,20 @@ export class DiscordBot implements PlatformBot {
       this.config.webhookUrl,
     );
 
-    responsePromise
-      .then(() => {
-        if (this.abort.signal.aborted || this.stopped) return;
+    // Schedule a refresh after durationMs
+    this.refreshTimer = setTimeout(() => {
+      if (this.abort.signal.aborted || this.stopped) return;
 
-        log(
-          'DiscordBot appId=%s duration elapsed (%dh), refreshing...',
-          this.applicationId,
-          durationMs / 3_600_000,
-        );
-        this.start().catch((err) => {
-          log('Failed to refresh DiscordBot appId=%s: %O', this.applicationId, err);
-        });
-      })
-      .catch((err) => {
-        if (this.abort.signal.aborted || this.stopped) return;
-
-        log('DiscordBot appId=%s errored: %O, refreshing...', this.applicationId, err);
-        this.start().catch((restartErr) => {
-          log('Failed to refresh DiscordBot appId=%s: %O', this.applicationId, restartErr);
-        });
+      log(
+        'DiscordBot appId=%s duration elapsed (%dh), refreshing...',
+        this.applicationId,
+        durationMs / 3_600_000,
+      );
+      this.abort.abort();
+      this.start().catch((err) => {
+        log('Failed to refresh DiscordBot appId=%s: %O', this.applicationId, err);
       });
+    }, durationMs);
 
     log('DiscordBot appId=%s started', this.applicationId);
   }
@@ -115,6 +111,10 @@ export class DiscordBot implements PlatformBot {
   async stop(): Promise<void> {
     log('Stopping DiscordBot appId=%s', this.applicationId);
     this.stopped = true;
+    if (this.refreshTimer) {
+      clearTimeout(this.refreshTimer);
+      this.refreshTimer = null;
+    }
     this.abort.abort();
   }
 }
