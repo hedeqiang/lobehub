@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 import { type SearchMode } from '../search';
 import { type UserMemoryEffort } from '../user/settings/memory';
-import { type LocalSystemConfig } from './agentConfig';
+import { type RuntimeEnvConfig } from './agentConfig';
 
 export interface WorkingModel {
   model: string;
@@ -95,15 +95,23 @@ export interface LobeAgentChatConfig extends AgentMemoryChatConfig {
    */
   imageResolution2?: '512px' | '1K' | '2K' | '4K';
   inputTemplate?: string;
-  /**
-   * Local System configuration (desktop only)
-   */
-  localSystem?: LocalSystemConfig;
   reasoningBudgetToken?: number;
   reasoningEffort?: 'low' | 'medium' | 'high';
+  /**
+   * Runtime environment configuration (desktop only)
+   */
+  runtimeEnv?: RuntimeEnvConfig;
 
   searchFCModel?: WorkingModel;
   searchMode?: SearchMode;
+
+  /**
+   * Skill activate mode:
+   * - 'auto': Default tools (LobeTools, Skills, SkillStore, etc.) are always active,
+   *   allowing AI to autonomously activate tools, run skills, and install new skills.
+   * - 'manual': Only user-selected tools/skills are active, giving precise control.
+   */
+  skillActivateMode?: 'auto' | 'manual';
 
   /**
    * Output text verbosity control
@@ -130,9 +138,12 @@ export interface LobeAgentChatConfig extends AgentMemoryChatConfig {
 }
 
 /**
- * Zod schema for LocalSystemConfig
+ * Zod schema for RuntimeEnvConfig
  */
-export const LocalSystemConfigSchema = z.object({
+const runtimeEnvModeEnum = z.enum(['local', 'cloud', 'none']);
+
+export const RuntimeEnvConfigSchema = z.object({
+  runtimeMode: z.record(z.string(), runtimeEnvModeEnum).optional(),
   workingDirectory: z.string().optional(),
 });
 
@@ -173,7 +184,7 @@ export const AgentChatConfigSchema = z
     imageAspectRatio2: z.string().optional(),
     imageResolution: z.enum(['1K', '2K', '4K']).optional(),
     imageResolution2: z.enum(['512px', '1K', '2K', '4K']).optional(),
-    localSystem: LocalSystemConfigSchema.optional(),
+    runtimeEnv: RuntimeEnvConfigSchema.optional(),
     reasoningBudgetToken: z.number().optional(),
     reasoningEffort: z.enum(['low', 'medium', 'high']).optional(),
     searchFCModel: z
@@ -183,6 +194,7 @@ export const AgentChatConfigSchema = z
       })
       .optional(),
     searchMode: z.enum(['off', 'on', 'auto']).optional(),
+    skillActivateMode: z.enum(['auto', 'manual']).optional(),
     textVerbosity: z.enum(['low', 'medium', 'high']).optional(),
     thinking: z.enum(['disabled', 'auto', 'enabled']).optional(),
     thinkingBudget: z.number().optional(),
