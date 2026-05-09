@@ -81,6 +81,7 @@
     "./volcengine": "./src/aiModels/volcengine.ts",
     "./volcengineCodingPlan": "./src/aiModels/volcengineCodingPlan.ts",
     "./wenxin": "./src/aiModels/wenxin.ts",
+    "./worldrouter": "./src/aiModels/worldrouter.ts",
     "./xai": "./src/aiModels/xai.ts",
     "./xiaomimimo": "./src/aiModels/xiaomimimo.ts",
     "./xinference": "./src/aiModels/xinference.ts",

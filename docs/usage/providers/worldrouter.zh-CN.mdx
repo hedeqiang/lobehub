@@ -1,0 +1,107 @@
+---
+title: WorldRouter 提供商配置
+description: 学习如何在 LobeHub 中配置和使用 WorldRouter 提供商
+tags:
+  - WorldRouter
+  - 提供商配置
+  - 配置指南
+---
+
+# WorldRouter 提供商配置
+
+WorldRouter 是一个兼容 OpenAI API 的 AI 网关，可以通过单一 API 访问 OpenAI、Anthropic、Google、DeepSeek、xAI 等提供商的主流模型。本指南将帮助你在 LobeHub 中设置 WorldRouter 提供商。
+
+## 前置条件
+
+在使用 WorldRouter API 之前，你需要：
+
+1. **创建 WorldRouter 账户**
+   - 访问 [WorldRouter](https://www.worldrouter.ai)
+   - 注册账户
+
+2. **获取 API 密钥**
+   - 登录你的 WorldRouter 控制台
+   - 打开 [API Keys](https://www.worldrouter.ai/dashboard/api-keys)
+   - 创建用于 LobeHub 的 API 密钥
+
+## 配置
+
+### 环境变量
+
+在你的 `.env` 文件中添加以下环境变量：
+
+```bash
+# WorldRouter API 密钥（必需）
+WORLDROUTER_API_KEY=your_worldrouter_api_key
+```
+
+如果需要自定义可见模型列表，也可以设置：
+
+```bash
+# WorldRouter 模型列表（可选）
+WORLDROUTER_MODEL_LIST=-all,+gpt-5.4-mini,+claude-sonnet-4-6=Claude Sonnet
+```
+
+### 可用模型
+
+WorldRouter 提供多种热门模型的访问，包括：
+
+- **GPT-5.4 Mini** - OpenAI 的快速高性价比模型
+- **GPT-5.4** - OpenAI 的旗舰通用模型
+- **Claude Sonnet 4.6** - Anthropic 兼顾推理与代码能力的模型
+- **Claude Haiku 4.5** - Anthropic 面向高频任务的快速模型
+- **Gemini 3.1 Pro Preview** - Google 的长上下文多模态模型
+- **DeepSeek V3.2** - DeepSeek 的通用对话模型
+
+你可以在 [WorldRouter 模型列表](https://www.worldrouter.ai/models) 查看当前模型目录。
+
+## 使用方法
+
+1. **配置 API 密钥**
+   - 在环境变量中设置你的 WorldRouter API 密钥
+   - 重启你的 LobeHub 实例
+
+2. **选择模型**
+   - 进入 LobeHub 设置
+   - 导航到语言模型
+   - 选择 WorldRouter 作为你的提供商
+   - 从可用模型中选择一个模型
+
+3. **开始对话**
+   - 创建新对话
+   - 选择 WorldRouter 模型
+   - 开始对话
+
+## 功能特性
+
+- **多提供商访问**：通过一个 API 使用多个 AI 提供商的模型
+- **OpenAI 兼容**：使用标准 OpenAI API 格式
+- **函数调用**：支持兼容模型的函数调用能力
+- **视觉能力**：部分模型支持图像分析
+- **推理模型**：可访问多个提供商的推理模型
+
+## 故障排除
+
+### 常见问题
+
+1. **401 认证错误**
+   - 验证你的 API 密钥是否正确
+   - 确认 API 密钥处于可用状态
+   - 检查账户是否有足够余额
+
+2. **模型不可用**
+   - 确认模型存在于 [WorldRouter 模型列表](https://www.worldrouter.ai/models)
+   - 某些模型可能存在上游可用性或区域限制
+   - 如果所选模型临时不可用，可以切换到其他模型
+
+3. **速率限制**
+   - WorldRouter 可能会根据账户或上游提供商策略限制请求
+   - 降低请求频率，或选择负载较低的模型
+
+## 支持
+
+如需更多支持：
+
+- 访问 [WorldRouter](https://www.worldrouter.ai)
+- 查看 [模型列表](https://www.worldrouter.ai/models)
+- 在 [WorldRouter 控制台](https://www.worldrouter.ai/dashboard/api-keys) 管理 API 密钥

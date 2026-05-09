@@ -74,6 +74,7 @@ export enum ModelProvider {
   Volcengine = 'volcengine',
   VolcengineCodingPlan = 'volcenginecodingplan',
   Wenxin = 'wenxin',
+  WorldRouter = 'worldrouter',
   XAI = 'xai',
   XiaomiMiMo = 'xiaomimimo',
   Xinference = 'xinference',

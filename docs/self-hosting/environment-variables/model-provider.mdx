@@ -827,6 +827,22 @@ NewAPI is a multi-provider model aggregation service that supports automatic mod
 - Default: `-`
 - Example: `-all,+claude-opus-4-1-20250805,+claude-opus-4-20250514=claude-opus-4`
 
+## WorldRouter
+
+### `WORLDROUTER_API_KEY`
+
+- Type: Required
+- Description: This is the API key you applied for in the WorldRouter service.
+- Default: -
+- Example: `sk-xxxxxx...xxxxxx`
+
+### `WORLDROUTER_MODEL_LIST`
+
+- Type: Optional
+- Description: Used to control the WorldRouter model list. Use `+` to add a model, `-` to hide a model, and `model_name=display_name` to customize the display name of a model. Separate multiple entries with commas. The definition syntax follows the same rules as other providers' model lists.
+- Default: `-`
+- Example: `-all,+gpt-5.4-mini,+claude-sonnet-4-6=Claude Sonnet`
+
 ## Straico
 
 ### `STRAICO_API_KEY`

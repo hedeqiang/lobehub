@@ -77,6 +77,7 @@ import VLLMProvider from './vllm';
 import VolcengineProvider from './volcengine';
 import VolcengineCodingPlanProvider from './volcengineCodingPlan';
 import WenxinProvider from './wenxin';
+import WorldRouterProvider from './worldrouter';
 import XAIProvider from './xai';
 import XiaomiMiMoProvider from './xiaomimimo';
 import XinferenceProvider from './xinference';
@@ -222,6 +223,7 @@ export const DEFAULT_MODEL_PROVIDER_LIST = [
   XiaomiMiMoProvider,
   LongCatProvider,
   StreamLakeProvider,
+  WorldRouterProvider,
 ];
 
 export const filterEnabledModels = (provider: ModelProviderCard) => {
@@ -310,6 +312,7 @@ export { default as VLLMProviderCard } from './vllm';
 export { default as VolcengineProviderCard } from './volcengine';
 export { default as VolcengineCodingPlanProviderCard } from './volcengineCodingPlan';
 export { default as WenxinProviderCard } from './wenxin';
+export { default as WorldRouterProviderCard } from './worldrouter';
 export { default as XAIProviderCard } from './xai';
 export { default as XiaomiMiMoProviderCard } from './xiaomimimo';
 export { default as XinferenceProviderCard } from './xinference';

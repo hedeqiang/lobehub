@@ -1,0 +1,107 @@
+---
+title: WorldRouter Provider Configuration
+description: Learn how to configure and use the WorldRouter provider in LobeHub
+tags:
+  - WorldRouter
+  - Provider Configuration
+  - Setup Guide
+---
+
+# WorldRouter Provider Configuration
+
+WorldRouter is an OpenAI-compatible AI gateway that routes requests to leading models from providers such as OpenAI, Anthropic, Google, DeepSeek, xAI, and more through a single API. This guide will help you set up the WorldRouter provider in LobeHub.
+
+## Prerequisites
+
+Before using the WorldRouter API, you need to:
+
+1. **Create a WorldRouter Account**
+   - Visit [WorldRouter](https://www.worldrouter.ai)
+   - Sign up for an account
+
+2. **Obtain an API Key**
+   - Log in to your WorldRouter dashboard
+   - Open [API Keys](https://www.worldrouter.ai/dashboard/api-keys)
+   - Create an API key for use with LobeHub
+
+## Configuration
+
+### Environment Variables
+
+Add the following environment variable to your `.env` file:
+
+```bash
+# WorldRouter API Key (required)
+WORLDROUTER_API_KEY=your_worldrouter_api_key
+```
+
+If you need to customize the visible model list, you can also set:
+
+```bash
+# WorldRouter model list (optional)
+WORLDROUTER_MODEL_LIST=-all,+gpt-5.4-mini,+claude-sonnet-4-6=Claude Sonnet
+```
+
+### Available Models
+
+WorldRouter provides access to popular models, including:
+
+- **GPT-5.4 Mini** - A fast and cost-effective OpenAI model
+- **GPT-5.4** - OpenAI's flagship general-purpose model
+- **Claude Sonnet 4.6** - Anthropic's balanced reasoning and coding model
+- **Claude Haiku 4.5** - Anthropic's fast model for high-volume tasks
+- **Gemini 3.1 Pro Preview** - Google's long-context multimodal model
+- **DeepSeek V3.2** - DeepSeek's general-purpose chat model
+
+You can view the current model catalog at [WorldRouter Models](https://www.worldrouter.ai/models).
+
+## How to Use
+
+1. **Configure the API Key**
+   - Set your WorldRouter API key in the environment variables
+   - Restart your LobeHub instance
+
+2. **Select a Model**
+   - Go to LobeHub settings
+   - Navigate to the Language Model section
+   - Choose WorldRouter as your provider
+   - Select a model from the available options
+
+3. **Start a Conversation**
+   - Create a new conversation
+   - Select a WorldRouter model
+   - Begin chatting
+
+## Features
+
+- **Multi-Provider Access**: Use models from multiple AI providers through one API
+- **OpenAI-Compatible**: Uses the standard OpenAI API format
+- **Function Calling**: Supports function calling for compatible models
+- **Vision Capabilities**: Some models support image analysis
+- **Reasoning Models**: Provides access to reasoning-capable models from several providers
+
+## Troubleshooting
+
+### Common Issues
+
+1. **401 Unauthorized Error**
+   - Verify that your API key is correct
+   - Ensure the API key is active
+   - Check whether your account has sufficient credits
+
+2. **Model Unavailable**
+   - Confirm that the model exists in the [WorldRouter model list](https://www.worldrouter.ai/models)
+   - Some models may have provider-side availability or region restrictions
+   - Try another model if the selected model is temporarily unavailable
+
+3. **Rate Limiting**
+   - WorldRouter may enforce limits based on your account or the upstream provider
+   - Reduce request frequency or choose a lower-traffic model
+
+## Support
+
+For additional help:
+
+- Visit [WorldRouter](https://www.worldrouter.ai)
+- Browse the [Model List](https://www.worldrouter.ai/models)
+- Manage API keys in the [WorldRouter Dashboard](https://www.worldrouter.ai/dashboard/api-keys)
